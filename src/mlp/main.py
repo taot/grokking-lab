@@ -1,0 +1,119 @@
+import random
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+from . import configs
+
+def set_seed(seed: int):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+def make_dataset(p: int):
+    # all pairs (a, b) with label (a + b) mod p
+    xs = []
+    ys = []
+    for a in range(p):
+        for b in range(p):
+            xs.append((a, b))
+            ys.append((a + b) % p)
+    xs = torch.tensor(xs, dtype=torch.long)  # [N, 2]
+    ys = torch.tensor(ys, dtype=torch.long)  # [N]
+    return xs, ys
+
+class MLP(nn.Module):
+    def __init__(self, p: int, embed_dim: int, hidden_dim: int, depth: int):
+        super().__init__()
+        self.emb = nn.Embedding(p, embed_dim)
+        layers = []
+        in_dim = 2 * embed_dim
+        for _ in range(depth - 1):
+            layers += [nn.Linear(in_dim, hidden_dim), nn.ReLU()]
+            in_dim = hidden_dim
+        layers += [nn.Linear(in_dim, p)]
+        self.net = nn.Sequential(*layers)
+
+    def forward(self, x):  # x: [B,2]
+        a = self.emb(x[:, 0])
+        b = self.emb(x[:, 1])
+        h = torch.cat([a, b], dim=-1)
+        return self.net(h)
+
+@torch.no_grad()
+def evaluate(model, xs, ys, device):
+    model.eval()
+    logits = model(xs.to(device))
+    loss = F.cross_entropy(logits, ys.to(device)).item()
+    pred = logits.argmax(dim=-1).cpu()
+    acc = (pred == ys).float().mean().item()
+    return loss, acc
+
+def main(cfg: configs.BaseConfig):
+    set_seed(cfg.seed)
+    xs, ys = make_dataset(cfg.p)
+    n = xs.shape[0]
+    idx = torch.randperm(n)
+    n_train = int(n * cfg.train_frac)
+    train_idx = idx[:n_train]
+    val_idx = idx[n_train:]
+
+    x_tr, y_tr = xs[train_idx], ys[train_idx]
+    x_va, y_va = xs[val_idx], ys[val_idx]
+
+    model = MLP(cfg.p, cfg.embed_dim, cfg.hidden_dim, cfg.depth).to(cfg.device)
+    opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
+
+    logs = {"step": [], "train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
+
+    for step in range(1, cfg.steps + 1):
+        model.train()
+        # mini-batch
+        bidx = torch.randint(0, x_tr.shape[0], (cfg.batch_size,))
+        xb = x_tr[bidx].to(cfg.device)
+        yb = y_tr[bidx].to(cfg.device)
+
+        logits = model(xb)
+        loss = F.cross_entropy(logits, yb)
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+
+        if step % cfg.eval_every == 0 or step == 1:
+            tr_loss, tr_acc = evaluate(model, x_tr, y_tr, cfg.device)
+            va_loss, va_acc = evaluate(model, x_va, y_va, cfg.device)
+            logs["step"].append(step)
+            logs["train_loss"].append(tr_loss)
+            logs["train_acc"].append(tr_acc)
+            logs["val_loss"].append(va_loss)
+            logs["val_acc"].append(va_acc)
+
+            print(
+                f"step {step:6d} | "
+                f"train loss {tr_loss:.4f} acc {tr_acc*100:5.1f}% | "
+                f"val loss {va_loss:.4f} acc {va_acc*100:5.1f}%"
+            )
+
+
+    import matplotlib.pyplot as plt
+    steps = logs["step"]
+    plt.figure()
+    plt.plot(steps, logs["train_loss"], label="train_loss")
+    plt.plot(steps, logs["val_loss"], label="val_loss")
+    plt.xlabel("step"); plt.ylabel("loss"); plt.legend()
+    plt.title("Grokking? Loss curves")
+    plt.show()
+
+    plt.figure()
+    plt.plot(steps, logs["train_acc"], label="train_acc")
+    plt.plot(steps, logs["val_acc"], label="val_acc")
+    plt.xlabel("step"); plt.ylabel("accuracy"); plt.legend()
+    plt.title("Grokking? Acc curves")
+    plt.show()
+
+
+if __name__ == "__main__":
+    cfg = configs.TrainFrac40Config()
+    main(cfg)
