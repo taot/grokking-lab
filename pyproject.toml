@@ -12,6 +12,8 @@ dependencies = [
     "matplotlib",
     "torch",
     "torchvision",
+    "PyYAML",
+    "typer",
 ]
 
 [tool.setuptools]

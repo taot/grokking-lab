@@ -1,16 +1,20 @@
 import random
+
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import typer
 
 from . import configs
+
 
 def set_seed(seed: int):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
+
 
 def make_dataset(p: int):
     # all pairs (a, b) with label (a + b) mod p
@@ -23,6 +27,7 @@ def make_dataset(p: int):
     xs = torch.tensor(xs, dtype=torch.long)  # [N, 2]
     ys = torch.tensor(ys, dtype=torch.long)  # [N]
     return xs, ys
+
 
 class MLP(nn.Module):
     def __init__(self, p: int, embed_dim: int, hidden_dim: int, depth: int):
@@ -42,6 +47,7 @@ class MLP(nn.Module):
         h = torch.cat([a, b], dim=-1)
         return self.net(h)
 
+
 @torch.no_grad()
 def evaluate(model, xs, ys, device):
     model.eval()
@@ -51,7 +57,8 @@ def evaluate(model, xs, ys, device):
     acc = (pred == ys).float().mean().item()
     return loss, acc
 
-def main(cfg: configs.BaseConfig):
+
+def main(cfg: configs.Config):
     set_seed(cfg.seed)
     xs, ys = make_dataset(cfg.p)
     n = xs.shape[0]
@@ -64,9 +71,17 @@ def main(cfg: configs.BaseConfig):
     x_va, y_va = xs[val_idx], ys[val_idx]
 
     model = MLP(cfg.p, cfg.embed_dim, cfg.hidden_dim, cfg.depth).to(cfg.device)
-    opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
+    opt = torch.optim.AdamW(
+        model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay
+    )
 
-    logs = {"step": [], "train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
+    logs = {
+        "step": [],
+        "train_loss": [],
+        "train_acc": [],
+        "val_loss": [],
+        "val_acc": [],
+    }
 
     for step in range(1, cfg.steps + 1):
         model.train()
@@ -92,28 +107,36 @@ def main(cfg: configs.BaseConfig):
 
             print(
                 f"step {step:6d} | "
-                f"train loss {tr_loss:.4f} acc {tr_acc*100:5.1f}% | "
-                f"val loss {va_loss:.4f} acc {va_acc*100:5.1f}%"
+                f"train loss {tr_loss:.4f} acc {tr_acc * 100:5.1f}% | "
+                f"val loss {va_loss:.4f} acc {va_acc * 100:5.1f}%"
             )
 
-
     import matplotlib.pyplot as plt
+
     steps = logs["step"]
     plt.figure()
     plt.plot(steps, logs["train_loss"], label="train_loss")
     plt.plot(steps, logs["val_loss"], label="val_loss")
-    plt.xlabel("step"); plt.ylabel("loss"); plt.legend()
+    plt.xlabel("step")
+    plt.ylabel("loss")
+    plt.legend()
     plt.title("Grokking? Loss curves")
     plt.show()
 
     plt.figure()
     plt.plot(steps, logs["train_acc"], label="train_acc")
     plt.plot(steps, logs["val_acc"], label="val_acc")
-    plt.xlabel("step"); plt.ylabel("accuracy"); plt.legend()
+    plt.xlabel("step")
+    plt.ylabel("accuracy")
+    plt.legend()
     plt.title("Grokking? Acc curves")
     plt.show()
 
 
-if __name__ == "__main__":
-    cfg = configs.TrainFrac40Config()
+def run(config: str = typer.Option(..., "--config", exists=True, readable=True)):
+    cfg = configs.load_config(config)
     main(cfg)
+
+
+if __name__ == "__main__":
+    typer.run(run)
