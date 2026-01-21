@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+import json
+from dataclasses import dataclass, asdict
 from typing import Any, Dict
 
 import torch
@@ -19,6 +20,10 @@ class Config:
     eval_every: int
     seed: int
     device: str
+
+    def print(self):
+        print("Config:")
+        print(json.dumps(asdict(self), indent=4))
 
 
 def _validate_fields(data: Dict[str, Any], path: str) -> None:

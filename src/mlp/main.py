@@ -1,10 +1,12 @@
 import json
 import random
 import shutil
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 
 import numpy as np
+import rich
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -96,6 +98,8 @@ def main(cfg: configs.Config, experiment: str, config_path: str):
         "val_loss": [],
         "val_acc": [],
     }
+
+    cfg.print()
 
     for step in range(1, cfg.steps + 1):
         model.train()
