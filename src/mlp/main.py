@@ -1,4 +1,8 @@
+import json
 import random
+import shutil
+from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -58,8 +62,15 @@ def evaluate(model, xs, ys, device):
     return loss, acc
 
 
-def main(cfg: configs.Config):
+def main(cfg: configs.Config, experiment: str, config_path: str):
     set_seed(cfg.seed)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    runs_dir = Path("runs") / experiment / timestamp
+    runs_dir.mkdir(parents=True, exist_ok=True)
+
+    shutil.copy(config_path, runs_dir / "config.yaml")
+
     xs, ys = make_dataset(cfg.p)
     n = xs.shape[0]
     idx = torch.randperm(n)
@@ -74,6 +85,9 @@ def main(cfg: configs.Config):
     opt = torch.optim.AdamW(
         model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay
     )
+
+    metrics_file = runs_dir / "metrics.jsonl"
+    metrics_fp = open(metrics_file, "w")
 
     logs = {
         "step": [],
@@ -111,6 +125,22 @@ def main(cfg: configs.Config):
                 f"val loss {va_loss:.4f} acc {va_acc * 100:5.1f}%"
             )
 
+            metrics_fp.write(
+                json.dumps(
+                    {
+                        "step": step,
+                        "train_loss": tr_loss,
+                        "train_acc": tr_acc,
+                        "val_loss": va_loss,
+                        "val_acc": va_acc,
+                    }
+                )
+                + "\n"
+            )
+            metrics_fp.flush()
+
+    metrics_fp.close()
+
     import matplotlib.pyplot as plt
 
     steps = logs["step"]
@@ -121,6 +151,7 @@ def main(cfg: configs.Config):
     plt.ylabel("loss")
     plt.legend()
     plt.title("Grokking? Loss curves")
+    plt.savefig(runs_dir / "losses.png")
     plt.show()
 
     plt.figure()
@@ -130,12 +161,20 @@ def main(cfg: configs.Config):
     plt.ylabel("accuracy")
     plt.legend()
     plt.title("Grokking? Acc curves")
+    plt.savefig(runs_dir / "accuracy.png")
     plt.show()
 
+    torch.save(model.state_dict(), runs_dir / "checkpoint.pt")
 
-def run(config: str = typer.Option(..., "--config", exists=True, readable=True)):
+
+def run(
+    config: str = typer.Option(..., "--config", exists=True, readable=True),
+    experiment: str = typer.Option(None, "--experiment"),
+):
+    if experiment is None:
+        experiment = Path(config).stem
     cfg = configs.load_config(config)
-    main(cfg)
+    main(cfg, experiment, config)
 
 
 if __name__ == "__main__":
