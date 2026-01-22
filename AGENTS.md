@@ -1,5 +1,9 @@
 # Project grokking-lab
 
+## Coding style
+
+1. Always add python type hints when writing functions, methods or classes.
+
 ## How to install dependencies
 
 Add dependencies in pyproject.toml, and sync it with `uv sync`.
