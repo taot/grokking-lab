@@ -10,7 +10,11 @@ Add dependencies in pyproject.toml, and sync it with `uv sync`.
 
 ## How to run experiments
 
-Run experiments with `typer run run --experiment <experiment_name> --config configs/<config_name>.yaml`
+Run experiments with `uv run --experiment <experiment_name> --config <path_to_config>.yaml`.
+
+## How to run python code
+
+The python environment is installed by `uv`. Run python code with `uv run <python_file.py>`.
 
 ## git lfs
 

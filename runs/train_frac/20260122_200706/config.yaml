@@ -6,7 +6,7 @@ depth: 3
 batch_size: 256
 lr: 0.001
 weight_decay: 0.01
-steps: 500000
+steps: 800000
 eval_every: 500
 seed: 0
 device: auto

@@ -1,0 +1,82 @@
+[
+  {
+    "metrics_path": "/home/taot/github/grokking-lab/runs/train_frac/20260122_085304/metrics.jsonl",
+    "train_frac": 0.25,
+    "seed": 0,
+    "steps": 1500000,
+    "max_val_acc": 1.0,
+    "max_step": 1190000,
+    "first_grok_step": 1083000,
+    "last_step": 1500000
+  },
+  {
+    "metrics_path": "/home/taot/github/grokking-lab/runs/seed/20260122_095242/metrics.jsonl",
+    "train_frac": 0.25,
+    "seed": 42,
+    "steps": 1200000,
+    "max_val_acc": 1.0,
+    "max_step": 1113000,
+    "first_grok_step": 1009000,
+    "last_step": 1200000
+  },
+  {
+    "metrics_path": "/home/taot/github/grokking-lab/runs/train_frac/20260122_065110/metrics.jsonl",
+    "train_frac": 0.3,
+    "seed": 0,
+    "steps": 500000,
+    "max_val_acc": 0.11219067871570587,
+    "max_step": 500000,
+    "first_grok_step": null,
+    "last_step": 500000
+  },
+  {
+    "metrics_path": "/home/taot/github/grokking-lab/runs/train_frac/20260122_073903/metrics.jsonl",
+    "train_frac": 0.3,
+    "seed": 0,
+    "steps": 600000,
+    "max_val_acc": 0.8008198142051697,
+    "max_step": 600000,
+    "first_grok_step": null,
+    "last_step": 600000
+  },
+  {
+    "metrics_path": "/home/taot/github/grokking-lab/runs/train_frac/20260121_094638/metrics.jsonl",
+    "train_frac": 0.35,
+    "seed": 0,
+    "steps": 500000,
+    "max_val_acc": 1.0,
+    "max_step": 478500,
+    "first_grok_step": 412000,
+    "last_step": 500000
+  },
+  {
+    "metrics_path": "/home/taot/github/grokking-lab/runs/train_frac/20260121_093150/metrics.jsonl",
+    "train_frac": 0.4,
+    "seed": 0,
+    "steps": 400000,
+    "max_val_acc": 1.0,
+    "max_step": 364000,
+    "first_grok_step": 318800,
+    "last_step": 400000
+  },
+  {
+    "metrics_path": "/home/taot/github/grokking-lab/runs/train_frac/20260121_092213/metrics.jsonl",
+    "train_frac": 0.45,
+    "seed": 0,
+    "steps": 300000,
+    "max_val_acc": 1.0,
+    "max_step": 288800,
+    "first_grok_step": 247200,
+    "last_step": 300000
+  },
+  {
+    "metrics_path": "/home/taot/github/grokking-lab/runs/train_frac/20260121_082404/metrics.jsonl",
+    "train_frac": 0.5,
+    "seed": 0,
+    "steps": 200000,
+    "max_val_acc": 0.9015940427780151,
+    "max_step": 200000,
+    "first_grok_step": 200000,
+    "last_step": 200000
+  }
+]
