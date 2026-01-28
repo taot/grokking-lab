@@ -12,6 +12,7 @@ dependencies = [
     "matplotlib",
     "torch",
     "torchvision",
+    "pytest",
     "PyYAML",
     "typer",
     "ipykernel>=6.29.5",
@@ -22,3 +23,6 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-s"  # pytest 不捕获 stdout/stderr
