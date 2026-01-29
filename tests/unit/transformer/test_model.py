@@ -1,50 +1,66 @@
 import math
 
+import pytest
 import torch
 from torch import nn
 from torch.testing import assert_close
 
-from transformer.model import softmax, Attention, positional_encoding, LayerNorm
+from transformer.model import softmax, Attention, positional_encoding, LayerNorm, Embedding, relu, Transformer, xavier_init
 
 
 def test_softmax() -> None:
-    x = torch.Tensor([[1, 2], [3, 4]])
+    x = torch.Tensor([[1, 2], [3, 5]])
     y = softmax(x)
+    print("\ny:")
     print(y)
-    assert_close(y, torch.tensor([[0.268941, 0.098938], [1.987223, 0.731059]]))
+    expected = torch.Tensor([
+        [0.268941, 0.731059],
+        [0.119203, 0.880797]
+    ])
+    assert_close(y, expected)
 
 
-# def test_attention() -> None:
-#     d = 4
-#     batch = 1
-#     seq_len = 3
-#
-#     my_mha = Attention(d, d, d)
-#     official_mha = nn.MultiheadAttention(d, 1, batch_first=True)
-#
-#     with torch.no_grad():
-#         # 注意 PyTorch MHA 的权重排列方式
-#         # my_mha.W_q.weight.copy_(official_mha.in_proj_weight[:d])
-#         # my_mha.W_k.weight.copy_(official_mha.in_proj_weight[d:2 * d])
-#         # my_mha.W_v.weight.copy_(official_mha.in_proj_weight[2 * d:])
-#         # my_mha.W_o.weight.copy_(official_mha.out_proj.weight)
-#
-#         W = official_mha.in_proj_weight.detach()
-#         my_mha.W_q = W[:d].clone()
-#         my_mha.W_k = W[d:2 * d].clone()
-#         my_mha.W_v = W[2 * d:].clone()
-#
-#         official_mha.out_proj.weight
-#
-#     # 测试
-#     x = torch.randn(batch, seq_len, d)
-#
-#     official_out, official_attn = official_mha(x, x, x)
-#     my_out = my_mha.forward(x, None)
-#
-#     print(f"输出差异: {(official_out - my_out).abs().max():.2e}")  # 应该 < 1e-5
-#     # print(f"Attention 差异: {(official_attn - my_attn).abs().max():.2e}")
-#     assert_close(my_out, official_out)
+def test_softmax_batch() -> None:
+    x = torch.Tensor([
+        [
+            [1, 1, 1, 1],
+            [1, 1, 1, 1],
+            [1, 1, 1, 1],
+        ],
+        [
+            [1, 1, 1, 1],
+            [1, 1, 1, 1],
+            [1, 1, 1, 1],
+        ]
+    ])
+
+    y = softmax(x)
+
+    expected = torch.Tensor([
+        [
+            [0.250000, 0.250000, 0.250000, 0.250000],
+            [0.250000, 0.250000, 0.250000, 0.250000],
+            [0.250000, 0.250000, 0.250000, 0.250000]
+        ],
+        [
+            [0.250000, 0.250000, 0.250000, 0.250000],
+            [0.250000, 0.250000, 0.250000, 0.250000],
+            [0.250000, 0.250000, 0.250000, 0.250000]
+        ]
+    ])
+
+    assert_close(y, expected)
+
+
+def test_relu() -> None:
+    x = torch.Tensor([[1, -1, -2], [2, 0, 1]])
+    y = relu(x)
+    expected = torch.Tensor([
+        [1., 0., 0.],
+        [2., 0., 1.]
+    ])
+
+    assert_close(y, expected)
 
 
 def plain_positional_encoding(p: int, j: int, d: int, N: int) -> float:
@@ -58,7 +74,7 @@ def plain_positional_encoding(p: int, j: int, d: int, N: int) -> float:
 
 
 def test_positional_encoding() -> None:
-    pe = positional_encoding(seq_len=5, d=4, N=8)
+    pe = positional_encoding(max_seq_len=5, d=4, N=8)
 
     expected = torch.Tensor([
             [ 0.000000,  1.000000,  0.000000,  1.000000],
@@ -86,3 +102,58 @@ def test_layer_norm() -> None:
         [-0.270389, 0.132657, 0.737733]
     ])
     assert_close(out, expected)
+
+
+@pytest.mark.parametrize(
+    "input_ids, expected",
+    [
+        [
+            torch.LongTensor([2, 0, 1]),
+            torch.Tensor([
+                [5., 6.],
+                [1., 2.],
+                [3., 4.]
+            ])
+        ],
+        [
+            torch.LongTensor([
+                [0, 1, 2],
+                [1, 2, 0],
+            ]),
+            torch.Tensor([
+                [
+                    [1., 2.],
+                    [3., 4.],
+                    [5., 6.]
+                ],
+                [
+                    [3., 4.],
+                    [5., 6.],
+                    [1., 2.]
+                ]
+            ])
+        ]
+    ]
+)
+def test_embedding(input_ids: torch.Tensor, expected: torch.Tensor) -> None:
+    embedding = Embedding(vocab_size=3, d=2)
+    embedding.weights = torch.Tensor([
+        [1, 2],
+        [3, 4],
+        [5, 6],
+    ])
+
+    emb = embedding.forward(input_ids)
+    assert_close(emb, expected)
+
+
+def test_transformer() -> None:
+    transformer = Transformer(vocab_size=3, d=4, n_layers=1)
+
+    x = torch.LongTensor([
+        [2, 0, 1]
+    ])
+
+    out = transformer.forward(x)
+
+    print(out)
