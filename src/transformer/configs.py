@@ -9,10 +9,10 @@ import yaml
 @dataclass
 class Config:
     p: int
+    vocab_size: int
+    d: int
+    n_layers: int
     train_frac: float
-    embed_dim: int
-    hidden_dim: int
-    depth: int
     batch_size: int
     lr: float
     weight_decay: float

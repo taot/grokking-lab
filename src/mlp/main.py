@@ -136,7 +136,7 @@ def _load_metrics(metrics_file: Path) -> Dict[str, list]:
 
 def _create_runs_dir(experiment: str) -> Path:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    runs_dir = Path("runs") / experiment / timestamp
+    runs_dir = Path("runs") / "mlp" / experiment / timestamp
     runs_dir.mkdir(parents=True, exist_ok=True)
     return runs_dir
 

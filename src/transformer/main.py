@@ -1,18 +1,16 @@
 import json
 import random
-import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, TextIO
 
 import numpy as np
-import rich
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import typer
 
 from . import configs
+from .model import Transformer
 
 
 def set_seed(seed: int) -> None:
@@ -35,34 +33,16 @@ def make_dataset(p: int) -> tuple[torch.Tensor, torch.Tensor]:
     return xs, ys
 
 
-class MLP(nn.Module):
-    def __init__(self, p: int, embed_dim: int, hidden_dim: int, depth: int) -> None:
-        super().__init__()
-        self.emb = nn.Embedding(p, embed_dim)
-        layers = []
-        in_dim = 2 * embed_dim
-        for _ in range(depth - 1):
-            layers += [nn.Linear(in_dim, hidden_dim), nn.ReLU()]
-            in_dim = hidden_dim
-        layers += [nn.Linear(in_dim, p)]
-        self.net = nn.Sequential(*layers)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:  # x: [B,2]
-        a = self.emb(x[:, 0])
-        b = self.emb(x[:, 1])
-        h = torch.cat([a, b], dim=-1)
-        return self.net(h)
-
-
 @torch.no_grad()
 def evaluate(
-    model: nn.Module,
+    model: Transformer,
     xs: torch.Tensor,
     ys: torch.Tensor,
     device: str,
 ) -> tuple[float, float]:
     model.eval()
-    logits = model(xs.to(device))
+
+    logits = model.forward(xs.to(device))
     loss = F.cross_entropy(logits, ys.to(device)).item()
     pred = logits.argmax(dim=-1).cpu()
     acc = (pred == ys).float().mean().item()
@@ -136,7 +116,7 @@ def _load_metrics(metrics_file: Path) -> Dict[str, list]:
 
 def _create_runs_dir(experiment: str) -> Path:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    runs_dir = Path("runs") / experiment / timestamp
+    runs_dir = Path("runs") / "transformer" / experiment / timestamp
     runs_dir.mkdir(parents=True, exist_ok=True)
     return runs_dir
 
@@ -149,17 +129,6 @@ def main(
 ) -> None:
     set_seed(cfg.seed)
 
-    if resume_from is not None:
-        checkpoint_path = resume_from / "checkpoint.pt"
-        metrics_path = resume_from / "metrics.jsonl"
-        if not checkpoint_path.exists():
-            raise FileNotFoundError(f"Missing checkpoint: {checkpoint_path}")
-        if not metrics_path.exists():
-            raise FileNotFoundError(f"Missing metrics: {metrics_path}")
-
-    runs_dir = _create_runs_dir(experiment)
-    shutil.copy(config_path, runs_dir / "config.yaml")
-
     xs, ys = make_dataset(cfg.p)
     n = xs.shape[0]
     idx = torch.randperm(n)
@@ -170,106 +139,35 @@ def main(
     x_tr, y_tr = xs[train_idx], ys[train_idx]
     x_va, y_va = xs[val_idx], ys[val_idx]
 
-    model = MLP(cfg.p, cfg.embed_dim, cfg.hidden_dim, cfg.depth).to(cfg.device)
-    opt = torch.optim.AdamW(
-        model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay
-    )
+    model = Transformer(vocab_size=cfg.vocab_size, d=cfg.d, n_layers=cfg.n_layers).to(device=cfg.device)
+    optim = torch.optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
 
-    metrics_file = runs_dir / "metrics.jsonl"
-    logs = {
-        "step": [],
-        "train_loss": [],
-        "train_acc": [],
-        "val_loss": [],
-        "val_acc": [],
-    }
+    for step in range(cfg.steps):
+        # mini-batch
+        bidx = torch.randint(0, x_tr.shape[0], (cfg.batch_size,))
+        xb = x_tr[bidx].to(cfg.device)
+        yb = y_tr[bidx].to(cfg.device)
 
-    start_step = 0
-    if resume_from is not None:
-        checkpoint_path = resume_from / "checkpoint.pt"
-        metrics_path = resume_from / "metrics.jsonl"
+        logits = model.forward(xb)
+        loss = F.cross_entropy(logits, yb)
 
-        print(f"Resuming from {resume_from}")
+        optim.zero_grad()
+        loss.backward()
+        optim.step()
 
-        model.load_state_dict(torch.load(checkpoint_path, map_location=cfg.device))
-        logs = _load_metrics(metrics_path)
-        if logs["step"]:
-            start_step = logs["step"][-1]
+        if step % cfg.eval_every == 0 or step == 1:
+            tr_loss, tr_acc = evaluate(model, x_tr, y_tr, cfg.device)
+            va_loss, va_acc = evaluate(model, x_va, y_va, cfg.device)
 
-    cfg.print()
-
-    with open(metrics_file, "w", encoding="utf-8") as metrics_fp:
-        if logs["step"]:
-            for idx in range(len(logs["step"])):
-                _write_metrics(
-                    metrics_fp,
-                    logs["step"][idx],
-                    logs["train_loss"][idx],
-                    logs["train_acc"][idx],
-                    logs["val_loss"][idx],
-                    logs["val_acc"][idx],
-                )
-
-        if start_step >= cfg.steps:
             print(
-                f"Resume step {start_step} is >= total steps {cfg.steps}; "
-                "skipping training."
+                f"step {step:6d} | "
+                f"train loss {tr_loss:.4f} acc {tr_acc * 100:5.1f}% | "
+                f"val loss {va_loss:.4f} acc {va_acc * 100:5.1f}%"
             )
-        else:
-            for step in range(start_step + 1, cfg.steps + 1):
-                model.train()
-                # mini-batch
-                bidx = torch.randint(0, x_tr.shape[0], (cfg.batch_size,))
-                xb = x_tr[bidx].to(cfg.device)
-                yb = y_tr[bidx].to(cfg.device)
 
-                logits = model(xb)
-                loss = F.cross_entropy(logits, yb)
-                opt.zero_grad()
-                loss.backward()
-                opt.step()
-
-                if step % cfg.eval_every == 0 or step == 1:
-                    tr_loss, tr_acc = evaluate(model, x_tr, y_tr, cfg.device)
-                    va_loss, va_acc = evaluate(model, x_va, y_va, cfg.device)
-
-                    print(
-                        f"step {step:6d} | "
-                        f"train loss {tr_loss:.4f} acc {tr_acc * 100:5.1f}% | "
-                        f"val loss {va_loss:.4f} acc {va_acc * 100:5.1f}%"
-                    )
-
-                    _append_metrics(
-                        logs, metrics_fp, step, tr_loss, tr_acc, va_loss, va_acc
-                    )
-
-    if not logs["step"]:
-        return
-
-    import matplotlib.pyplot as plt
-
-    steps = logs["step"]
-    plt.figure()
-    plt.plot(steps, logs["train_loss"], label="train_loss")
-    plt.plot(steps, logs["val_loss"], label="val_loss")
-    plt.xlabel("step")
-    plt.ylabel("loss")
-    plt.legend()
-    plt.title("Grokking? Loss curves")
-    plt.savefig(runs_dir / "losses.png")
-    plt.show()
-
-    plt.figure()
-    plt.plot(steps, logs["train_acc"], label="train_acc")
-    plt.plot(steps, logs["val_acc"], label="val_acc")
-    plt.xlabel("step")
-    plt.ylabel("accuracy")
-    plt.legend()
-    plt.title("Grokking? Acc curves")
-    plt.savefig(runs_dir / "accuracy.png")
-    plt.show()
-
-    torch.save(model.state_dict(), runs_dir / "checkpoint.pt")
+            # _append_metrics(
+            #     logs, metrics_fp, step, tr_loss, tr_acc, va_loss, va_acc
+            # )
 
 
 def run(
