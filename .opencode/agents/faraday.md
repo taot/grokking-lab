@@ -1,6 +1,7 @@
 ---
 description: Create clear, insightful report from the analysis of the experiments.
 mode: primary
+disable: true
 temperature: 0.1
 tools:
   write: true

@@ -1,5 +1,5 @@
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import MISSING, asdict, dataclass
 from typing import Any, Dict
 
 import torch
@@ -20,17 +20,22 @@ class Config:
     eval_every: int
     seed: int
     device: str
+    h: int = 4
 
-    def print(self):
+    def print(self) -> None:
         print("Config:")
         print(json.dumps(asdict(self), indent=4))
 
 
 def _validate_fields(data: Dict[str, Any], path: str) -> None:
-    required_fields = {field.name for field in Config.__dataclass_fields__.values()}
+    all_fields = {field.name for field in Config.__dataclass_fields__.values()}
+    required_fields: set[str] = set()
+    for field in Config.__dataclass_fields__.values():
+        if field.default is MISSING and field.default_factory is MISSING:  # type: ignore[attr-defined]
+            required_fields.add(field.name)
     keys = set(data.keys())
     missing = sorted(required_fields - keys)
-    extra = sorted(keys - required_fields)
+    extra = sorted(keys - all_fields)
 
     errors = []
     if missing:

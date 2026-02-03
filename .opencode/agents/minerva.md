@@ -1,6 +1,7 @@
 ---
 description: Discuss the AI experiments, analyze data and experiment results, draw insights and conclusions, and give suggestions.
 mode: primary
+disable: true
 temperature: 0.1
 tools:
   write: false

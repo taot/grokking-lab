@@ -151,9 +151,9 @@ def main(
     x_tr, y_tr = xs[train_idx], ys[train_idx]
     x_va, y_va = xs[val_idx], ys[val_idx]
 
-    model = Transformer(vocab_size=cfg.vocab_size, d=cfg.d, n_layers=cfg.n_layers).to(
-        device=cfg.device
-    )
+    model = Transformer(
+        vocab_size=cfg.vocab_size, d=cfg.d, n_layers=cfg.n_layers, h=cfg.h
+    ).to(device=cfg.device)
     opt = torch.optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
 
     metrics_file = runs_dir / "metrics.jsonl"

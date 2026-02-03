@@ -26,20 +26,20 @@ def assert_dimension(x: torch.Tensor, dim: tuple[int, ...]) -> None:
 
 
 class Attention(nn.Module):
-    # TODO Multi-head
     # TODO Causal mask
     # TODO Test
 
-    def __init__(self, d: int, d_k: int, d_v: int) -> None:
+    def __init__(self, d: int, h: int) -> None:
         super().__init__()
 
         self.d = d
-        self.d_k = d_k
-        self.d_v = d_v
+        self.h = h
+        assert self.d % self.h == 0
+        self.d_head = self.d // self.h
 
-        self.W_q = nn.Linear(d, d_k, bias=False)
-        self.W_k = nn.Linear(d, d_k, bias=False)
-        self.W_v = nn.Linear(d, d_v, bias=False)
+        self.W_q = nn.Linear(d, d, bias=False)
+        self.W_k = nn.Linear(d, d, bias=False)
+        self.W_v = nn.Linear(d, d, bias=False)
 
         # self.W_q = xavier_init(d, d_k)
         # self.W_k = xavier_init(d, d_k)
@@ -49,7 +49,7 @@ class Attention(nn.Module):
         # self.W_proj = xavier_init(d_v, d)
         # self.b_proj = torch.zeros(d)
 
-        self.W_proj = nn.Linear(d_v, d)
+        self.W_proj = nn.Linear(d, d)
 
     def forward(
         self, x: torch.Tensor, mask: Optional[torch.Tensor] = None
@@ -61,18 +61,46 @@ class Attention(nn.Module):
         # k = torch.matmul(x, self.W_k)       # batch_size * seq_len * d_k
         # v = torch.matmul(x, self.W_v)       # batch_size * seq_len * d_v
 
-        q = self.W_q(x)  # batch_size * seq_len * d_k
-        k = self.W_k(x)  # batch_size * seq_len * d_k
-        v = self.W_v(x)  # batch_size * seq_len * d_v
+        q = self.W_q(x)  # [B, T, d]
+        k = self.W_k(x)  # [B, T, d]
+        v = self.W_v(x)  # [B, T, d]
 
-        weights = torch.matmul(q, k.transpose(-1, -2)) / math.sqrt(
-            self.d_k
-        )  # batch_size * seq_len * seq_len
-        weights_softmax = torch.softmax(
-            weights, dim=-1
-        )  # batch_size * seq_len * seq_len
-        attn = torch.matmul(weights_softmax, v)  # batch_size * seq_len * d_v
+        q = q.view(batch_size, seq_len, self.h, self.d_head).transpose(1, 2)
+        k = k.view(batch_size, seq_len, self.h, self.d_head).transpose(1, 2)
+        v = v.view(batch_size, seq_len, self.h, self.d_head).transpose(1, 2)
+        assert_dimension(q, (batch_size, self.h, seq_len, self.d_head))
+        assert_dimension(k, (batch_size, self.h, seq_len, self.d_head))
+        assert_dimension(v, (batch_size, self.h, seq_len, self.d_head))
 
+        weights = torch.matmul(q, k.transpose(-1, -2)) / math.sqrt(self.d_head)
+        assert_dimension(weights, (batch_size, self.h, seq_len, seq_len))
+
+        causal = torch.ones(
+            (seq_len, seq_len), device=weights.device, dtype=torch.bool
+        ).tril()
+        attn_mask = causal[None, None, :, :]
+
+        if mask is not None:
+            mask = mask.to(device=weights.device)
+            if mask.dtype != torch.bool:
+                mask = mask.to(dtype=torch.bool)
+            if mask.dim() == 2:
+                mask = mask[None, None, :, :]
+            elif mask.dim() == 3:
+                mask = mask[:, None, :, :]
+            elif mask.dim() == 4:
+                pass
+            else:
+                raise ValueError(f"Invalid mask shape: {tuple(mask.shape)}")
+            attn_mask = attn_mask & mask
+
+        weights = weights.masked_fill(~attn_mask, torch.finfo(weights.dtype).min)
+
+        weights_softmax = torch.softmax(weights, dim=-1)
+        attn = torch.matmul(weights_softmax, v)
+        assert_dimension(attn, (batch_size, self.h, seq_len, self.d_head))
+
+        attn = attn.transpose(1, 2).contiguous().view(batch_size, seq_len, self.d)
         out = self.W_proj(attn)
 
         return out
@@ -116,11 +144,11 @@ def positional_encoding(max_seq_len: int, d: int, N: int = 100000) -> torch.Tens
 
 
 class DecoderBlock(nn.Module):
-    def __init__(self, d: int) -> None:
+    def __init__(self, d: int, h: int) -> None:
         super().__init__()
 
         self.layer_norm1 = nn.LayerNorm(d)
-        self.attention = Attention(d=d, d_k=d, d_v=d)
+        self.attention = Attention(d=d, h=h)
 
         # TODO residual connection
 
@@ -140,7 +168,7 @@ class DecoderBlock(nn.Module):
 
 
 class Transformer(nn.Module):
-    def __init__(self, *, vocab_size: int, d: int, n_layers: int) -> None:
+    def __init__(self, *, vocab_size: int, d: int, n_layers: int, h: int) -> None:
         super().__init__()
 
         self.vocab_size = vocab_size
@@ -152,7 +180,7 @@ class Transformer(nn.Module):
         self.register_buffer("pe", pe)
 
         self.decoder_blocks = nn.ModuleList(
-            [DecoderBlock(d=d) for _ in range(n_layers)]
+            [DecoderBlock(d=d, h=h) for _ in range(n_layers)]
         )
         self.linear = nn.Linear(d, self.vocab_size)
 
