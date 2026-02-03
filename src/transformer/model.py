@@ -1,5 +1,5 @@
 import math
-from typing import Optional
+from typing import Optional, cast
 
 import torch
 from torch import nn
@@ -26,7 +26,6 @@ def assert_dimension(x: torch.Tensor, dim: tuple[int, ...]) -> None:
 
 
 class Attention(nn.Module):
-
     # TODO Multi-head
     # TODO Causal mask
     # TODO Test
@@ -52,7 +51,9 @@ class Attention(nn.Module):
 
         self.W_proj = nn.Linear(d_v, d)
 
-    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         batch_size, seq_len = x.shape[:2]
         assert_dimension(x, (batch_size, seq_len, self.d))
 
@@ -64,9 +65,13 @@ class Attention(nn.Module):
         k = self.W_k(x)  # batch_size * seq_len * d_k
         v = self.W_v(x)  # batch_size * seq_len * d_v
 
-        weights = torch.matmul(q, k.transpose(-1, -2)) / math.sqrt(self.d_k)   # batch_size * seq_len * seq_len
-        weights_softmax = torch.softmax(weights, dim=-1)    # batch_size * seq_len * seq_len
-        attn = torch.matmul(weights_softmax, v)             # batch_size * seq_len * d_v
+        weights = torch.matmul(q, k.transpose(-1, -2)) / math.sqrt(
+            self.d_k
+        )  # batch_size * seq_len * seq_len
+        weights_softmax = torch.softmax(
+            weights, dim=-1
+        )  # batch_size * seq_len * seq_len
+        attn = torch.matmul(weights_softmax, v)  # batch_size * seq_len * d_v
 
         out = self.W_proj(attn)
 
@@ -111,7 +116,6 @@ def positional_encoding(max_seq_len: int, d: int, N: int = 100000) -> torch.Tens
 
 
 class DecoderBlock(nn.Module):
-
     def __init__(self, d: int) -> None:
         super().__init__()
 
@@ -125,17 +129,17 @@ class DecoderBlock(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.layer_norm1(x)
-        x = self.attention(x, mask=None)
-        x = self.layer_norm2(x)
-        x = self.linear(x)
-        x = self.relu(x)
+        # Pre-LN Transformer block with residual connections.
+        attn_out = self.attention(self.layer_norm1(x), mask=None)
+        x = x + attn_out
+
+        ff_out = self.relu(self.linear(self.layer_norm2(x)))
+        x = x + ff_out
 
         return x
 
 
 class Transformer(nn.Module):
-
     def __init__(self, *, vocab_size: int, d: int, n_layers: int) -> None:
         super().__init__()
 
@@ -144,21 +148,24 @@ class Transformer(nn.Module):
 
         self.embedding = nn.Embedding(num_embeddings=vocab_size, embedding_dim=d)
         pe = positional_encoding(max_seq_len=100, d=d, N=10)
+        self.pe: torch.Tensor
         self.register_buffer("pe", pe)
 
-        self.decoder_blocks = nn.ModuleList([DecoderBlock(d=d) for _ in range(n_layers)])
+        self.decoder_blocks = nn.ModuleList(
+            [DecoderBlock(d=d) for _ in range(n_layers)]
+        )
         self.linear = nn.Linear(d, self.vocab_size)
 
     def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
         seq_len = input_ids.shape[-1]
 
         x1 = self.embedding.forward(input_ids)
-        pe = self.pe[:seq_len, :].clone()
+        pe = cast(torch.Tensor, self.pe)[:seq_len, :].clone()
         x2 = x1 + pe
 
         xs = [x2]
         for i, decoder in enumerate(self.decoder_blocks):
-            new_x = self.decoder_blocks[i](xs[i])
+            new_x = decoder(xs[i])
             xs.append(new_x)
 
         x3 = xs[-1]
@@ -166,7 +173,7 @@ class Transformer(nn.Module):
 
         # x5 = torch.softmax(x4, dim=-1)    # 不应该加 softmax, pytorch.cross_entropy 已经包含 softmax
 
-        x6 = x4[:,-1,:]     # the output of last token
+        x6 = x4[:, -1, :]  # the output of last token
 
         return x6
 
