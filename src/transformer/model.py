@@ -150,10 +150,10 @@ class DecoderBlock(nn.Module):
         self.layer_norm1 = nn.LayerNorm(d)
         self.attention = Attention(d=d, h=h)
 
-        # TODO residual connection
-
         self.layer_norm2 = nn.LayerNorm(d)
-        self.linear = nn.Linear(d, d)
+
+        self.ff1 = nn.Linear(d, 4 * d)
+        self.ff2 = nn.Linear(4 * d, d)
         self.relu = nn.ReLU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -161,7 +161,7 @@ class DecoderBlock(nn.Module):
         attn_out = self.attention(self.layer_norm1(x), mask=None)
         x = x + attn_out
 
-        ff_out = self.relu(self.linear(self.layer_norm2(x)))
+        ff_out = self.ff2(self.relu(self.ff1(self.layer_norm2(x))))
         x = x + ff_out
 
         return x
@@ -175,7 +175,7 @@ class Transformer(nn.Module):
         self.d = d
 
         self.embedding = nn.Embedding(num_embeddings=vocab_size, embedding_dim=d)
-        pe = positional_encoding(max_seq_len=100, d=d, N=10)
+        pe = positional_encoding(max_seq_len=100, d=d, N=10000)
         self.pe: torch.Tensor
         self.register_buffer("pe", pe)
 

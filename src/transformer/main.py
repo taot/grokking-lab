@@ -154,7 +154,12 @@ def main(
     model = Transformer(
         vocab_size=cfg.vocab_size, d=cfg.d, n_layers=cfg.n_layers, h=cfg.h
     ).to(device=cfg.device)
-    opt = torch.optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
+    # opt = torch.optim.Adam(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
+    opt = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=cfg.weight_decay)
+    # opt = configure_optimizer(model, cfg.lr, cfg.weight_decay)
+
+    # overfit_test(model, cfg.device, p=97)
+
 
     metrics_file = runs_dir / "metrics.jsonl"
     logs = {
@@ -209,6 +214,8 @@ def main(
 
                 opt.zero_grad()
                 loss.backward()
+                # check_gradients(model)
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 opt.step()
 
                 if step % cfg.eval_every == 0 or step == 1:
@@ -274,6 +281,60 @@ def run(
 
     cfg = configs.load_config(resolved_config)
     main(cfg, experiment, resolved_config, resume_from=resume_from)
+
+
+def configure_optimizer(model, lr, weight_decay):
+    decay_params = []
+    no_decay_params = []
+
+    for name, param in model.named_parameters():
+        if 'bias' in name or 'layer_norm' in name or 'LayerNorm' in name:
+            no_decay_params.append(param)
+        else:
+            decay_params.append(param)
+
+    param_groups = [
+        {'params': decay_params, 'weight_decay': weight_decay},
+        {'params': no_decay_params, 'weight_decay': 0.0},
+    ]
+
+    return torch.optim.AdamW(param_groups, lr=lr)
+
+
+# 在训练前加入这个测试
+def overfit_test(model, device, p=97):
+    """测试模型能否过拟合 10 个样本"""
+    xs = torch.tensor([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]], dtype=torch.long)
+    ys = torch.tensor([(1 + 2) % p, (3 + 4) % p, (5 + 6) % p, (7 + 8) % p, (9 + 10) % p], dtype=torch.long)
+
+    model.train()
+    opt = torch.optim.Adam(model.parameters(), lr=1e-3)
+
+    for step in range(500):
+        logits = model(xs.to(device))
+        loss = F.cross_entropy(logits, ys.to(device))
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+
+        if step % 100 == 0:
+            pred = logits.argmax(dim=-1).cpu()
+            acc = (pred == ys).float().mean().item()
+            print(f"Step {step}: loss={loss.item():.4f}, acc={acc:.2%}")
+
+    # 最终应该接近 100% accuracy
+
+
+def check_gradients(model):
+    """检查各层梯度是否正常"""
+    print("\n=== Gradient Check ===")
+    for name, param in model.named_parameters():
+        if param.grad is not None:
+            grad_norm = param.grad.norm().item()
+            param_norm = param.norm().item()
+            print(f"{name:40s} | param={param_norm:.8f} | grad={grad_norm:.8f}")
+        else:
+            print(f"{name:40s} | NO GRADIENT")
 
 
 if __name__ == "__main__":
