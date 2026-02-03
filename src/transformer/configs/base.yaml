@@ -7,7 +7,7 @@ train_frac: 0.2
 batch_size: 64
 lr: 0.001
 weight_decay: 0.01
-steps: 200000
+steps: 50000
 eval_every: 200
 seed: 0
 device: auto
