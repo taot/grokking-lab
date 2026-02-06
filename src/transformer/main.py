@@ -144,7 +144,8 @@ def main(
                 raise FileNotFoundError(f"Missing metrics: {metrics_path}")
 
         runs_dir = _create_runs_dir(experiment)
-        shutil.copy(config_path, runs_dir / "config.orig.yaml")
+        if resume_from is not None:
+            shutil.copy(config_path, runs_dir / "config.orig.yaml")
         with (runs_dir / "config.yaml").open("w", encoding="utf-8") as handle:
             yaml.safe_dump(asdict(cfg), handle, sort_keys=False)
 
