@@ -146,7 +146,7 @@ def write_csv(results: list[RunResult], out_path: Path) -> None:
 
 
 def main() -> None:
-    runs_dir = Path("runs/train_frac")
+    runs_dir = Path("runs/transformer/train_frac")
     threshold = 0.9
 
     results = collect_results(runs_dir=runs_dir, threshold=threshold)

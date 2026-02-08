@@ -26,13 +26,13 @@ def main() -> int:
     parser.add_argument(
         "--run-dir",
         type=Path,
-        default=Path("runs/train_frac/20260122_085304"),
+        default=Path("runs/transformer/train_frac/20260206_070842"),
         help="Run directory containing metrics.jsonl",
     )
     parser.add_argument(
         "--out",
         type=Path,
-        default=Path("tmp/train_frac_20260122_085304_loss_accuracy.png"),
+        default=Path("tmp/transformer_train_frac_20260206_070842_loss_accuracy.png"),
         help="Output image path",
     )
     args = parser.parse_args()
