@@ -21,7 +21,7 @@ class Attention(nn.Module):
         self.W_q = nn.Linear(d, d, bias=False)
         self.W_k = nn.Linear(d, d, bias=False)
         self.W_v = nn.Linear(d, d, bias=False)
-        self.W_proj = nn.Linear(d, d)
+        self.W_proj = nn.Linear(d, d, bias=False)
 
     def forward(
         self, x: torch.Tensor, mask: Optional[torch.Tensor] = None
@@ -75,20 +75,17 @@ class DecoderBlock(nn.Module):
     def __init__(self, d: int, h: int) -> None:
         super().__init__()
 
-        self.layer_norm1 = nn.LayerNorm(d)
         self.attention = Attention(d=d, h=h)
-
-        self.layer_norm2 = nn.LayerNorm(d)
 
         self.ff1 = nn.Linear(d, 4 * d)
         self.ff2 = nn.Linear(4 * d, d)
         self.relu = nn.ReLU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        attn_out = self.attention(self.layer_norm1(x), mask=None)
+        attn_out = self.attention(x, mask=None)
         x = x + attn_out
 
-        ff_out = self.ff2(self.relu(self.ff1(self.layer_norm2(x))))
+        ff_out = self.ff2(self.relu(self.ff1(x)))
         x = x + ff_out
         return x
 
@@ -98,6 +95,7 @@ class Transformer(nn.Module):
         self,
         *,
         vocab_size: int,
+        output_size: int,
         d: int,
         n_layers: int,
         h: int,
@@ -106,6 +104,7 @@ class Transformer(nn.Module):
         super().__init__()
 
         self.vocab_size = vocab_size
+        self.output_size = output_size
         self.d = d
 
         self.embedding = nn.Embedding(num_embeddings=vocab_size, embedding_dim=d)
@@ -114,7 +113,7 @@ class Transformer(nn.Module):
         self.decoder_blocks = nn.ModuleList(
             [DecoderBlock(d=d, h=h) for _ in range(n_layers)]
         )
-        self.linear = nn.Linear(d, self.vocab_size)
+        self.linear = nn.Linear(d, self.output_size, bias=False)
 
     def forward(self, input_ids: torch.Tensor) -> torch.Tensor:
         seq_len = input_ids.shape[-1]

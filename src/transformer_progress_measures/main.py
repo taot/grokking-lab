@@ -170,6 +170,7 @@ def main(
 
         model = Transformer(
             vocab_size=cfg.vocab_size,
+            output_size=cfg.p,
             d=cfg.d,
             n_layers=cfg.n_layers,
             h=cfg.h,
