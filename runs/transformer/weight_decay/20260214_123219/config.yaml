@@ -6,7 +6,7 @@ train_frac: 0.5
 batch_size: 128
 lr: 0.001
 weight_decay: 0.0002
-steps: 800000
+steps: 1000000
 eval_every: 200
 seed: 0
 device: cuda
