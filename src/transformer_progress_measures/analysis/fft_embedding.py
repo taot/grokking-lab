@@ -3,10 +3,9 @@ from typing import Optional
 
 import matplotlib.pyplot as plt
 import torch
-import yaml
 from typer import Option, run
 
-from .model import Transformer
+from .utils import load_config, load_model
 
 
 def main(
@@ -16,20 +15,8 @@ def main(
     top_k: int = Option(10, "--top-k"),
     save_path: Optional[Path] = Option(None, "--save-path"),
 ) -> None:
-    cfg = yaml.safe_load((run_dir / "config.yaml").read_text(encoding="utf-8"))
-
-    model = Transformer(
-        vocab_size=cfg["vocab_size"],
-        output_size=cfg["p"],
-        d=cfg["d"],
-        n_layers=cfg["n_layers"],
-        h=cfg["h"],
-        max_seq_len=3,
-    ).to(cfg["device"])
-    model.load_state_dict(
-        torch.load(run_dir / "checkpoint.pt", map_location=cfg["device"])
-    )
-    model.eval()
+    cfg = load_config(run_dir)
+    model = load_model(run_dir, cfg)
 
     embedding = model.embedding.weight.detach()
     embedding_fft = torch.fft.fft(embedding, dim=0)
