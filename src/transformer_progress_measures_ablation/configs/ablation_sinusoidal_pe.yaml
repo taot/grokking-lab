@@ -1,0 +1,16 @@
+p: 113
+vocab_size: 114
+d: 128
+h: 4
+n_layers: 1
+train_frac: 0.3
+batch_size: 3830
+lr: 0.001
+weight_decay: 1.0
+steps: 40000
+eval_every: 200
+seed: 0
+device: auto
+use_layernorm: false
+use_sinusoidal_pe: true
+use_eq_token: true
