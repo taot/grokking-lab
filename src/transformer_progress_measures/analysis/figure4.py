@@ -205,11 +205,12 @@ def main(
     plt.colorbar(im1, ax=axes[1])
 
     # Right: Norms of Logits in 2D Fourier Basis
+    # Use a colormap with white background for low values
     im2 = axes[2].imshow(
         logits_fourier_norm_np.T,
         origin="upper",
         aspect="auto",
-        cmap="RdBu_r",
+        cmap="hot_r",  # White background for low values
     )
     axes[2].set_title("Norms of Logits in 2D Fourier Basis")
 
