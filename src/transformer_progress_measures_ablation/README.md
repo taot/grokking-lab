@@ -10,13 +10,28 @@ The ablations focus on three factors:
 The intent is to keep the optimization setup aligned while changing one structural factor at a time, then compare how strongly periodic/Fourier-like internal structure appears.
 
 Run training with:
-- `uv run src/transformer_progress_measures_ablation/main.py --experiment baseline --config src/transformer_progress_measures_ablation/configs/baseline.yaml`
-- `uv run src/transformer_progress_measures_ablation/main.py --experiment ablation_layernorm --config src/transformer_progress_measures_ablation/configs/ablation_layernorm.yaml`
-- `uv run src/transformer_progress_measures_ablation/main.py --experiment ablation_sinusoidal_pe --config src/transformer_progress_measures_ablation/configs/ablation_sinusoidal_pe.yaml`
-- `uv run src/transformer_progress_measures_ablation/main.py --experiment ablation_no_eq_token --config src/transformer_progress_measures_ablation/configs/ablation_no_eq_token.yaml`
+
+```
+uv run src/transformer_progress_measures_ablation/main.py --experiment baseline --config src/transformer_progress_measures_ablation/configs/baseline.yaml
+
+uv run src/transformer_progress_measures_ablation/main.py --experiment ablation_layernorm --config src/transformer_progress_measures_ablation/configs/ablation_layernorm.yaml
+
+uv run src/transformer_progress_measures_ablation/main.py --experiment ablation_sinusoidal_pe --config src/transformer_progress_measures_ablation/configs/ablation_sinusoidal_pe.yaml
+
+uv run src/transformer_progress_measures_ablation/main.py --experiment ablation_no_eq_token --config src/transformer_progress_measures_ablation/configs/ablation_no_eq_token.yaml
+```
+
+FFT Embedding:
+```
+uv run src/transformer_progress_measures/analysis/fft_embedding.py --run-dir <run_dir>
+```
 
 Score periodic structure from a run directory with:
-- `uv run src/transformer_progress_measures_ablation/analysis/periodicity_score.py --run-dir <run_dir>`
+```
+uv run src/transformer_progress_measures_ablation/analysis/periodicity_score.py --run-dir <run_dir>
+```
 
 Compare latest runs across all ablations with:
-- `uv run src/transformer_progress_measures_ablation/analysis/compare_runs.py`
+```
+uv run src/transformer_progress_measures_ablation/analysis/compare_runs.py
+```

@@ -4,7 +4,7 @@ import shutil
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, TextIO
+from typing import Any, Dict, Optional, TextIO, cast
 
 import numpy as np
 import torch
@@ -54,7 +54,7 @@ def evaluate(
 ) -> tuple[float, float]:
     model.eval()
 
-    logits = model.forward(xs.to(device))
+    logits = cast(torch.Tensor, model.forward(xs.to(device)))
     loss = F.cross_entropy(logits, ys.to(device)).item()
     pred = logits.argmax(dim=-1).cpu()
     acc = (pred == ys).float().mean().item()
@@ -128,9 +128,18 @@ def _load_metrics(metrics_file: Path) -> Dict[str, list]:
 
 def _create_runs_dir(experiment: str) -> Path:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    runs_dir = (
-        Path("runs") / "transformer_progress_measures_ablation" / experiment / timestamp
-    )
+    experiment_parts = Path(experiment).parts
+    if len(experiment_parts) > 1:
+        experiment_path = Path(*experiment_parts)
+        if experiment_parts[0] == "runs":
+            experiment_path = Path(*experiment_parts[1:])
+        runs_parent = Path("runs") / experiment_path
+    else:
+        runs_parent = (
+            Path("runs") / "transformer_progress_measures_ablation" / experiment
+        )
+
+    runs_dir = runs_parent / timestamp
     runs_dir.mkdir(parents=True, exist_ok=True)
     return runs_dir
 
@@ -252,7 +261,7 @@ def main(
                         xb = x_tr[bidx].to(cfg.device)
                         yb = y_tr[bidx].to(cfg.device)
 
-                    logits = model.forward(xb)
+                    logits = cast(torch.Tensor, model.forward(xb))
                     loss = F.cross_entropy(logits, yb)
 
                     opt.zero_grad()

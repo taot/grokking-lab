@@ -16,7 +16,10 @@ import numpy as np
 import torch
 from typer import Option, run
 
-from .utils import load_config, load_model
+try:
+    from .utils import load_config, load_model
+except ImportError:
+    from transformer_progress_measures.analysis.utils import load_config, load_model
 
 
 def compute_attention_and_mlp(

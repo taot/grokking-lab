@@ -8,7 +8,10 @@ from typer import Option, run
 try:
     from .utils import load_config, load_model
 except ImportError:
-    from transformer_progress_measures.analysis.utils import load_config, load_model
+    from transformer_progress_measures_ablation.analysis.utils import (
+        load_config,
+        load_model,
+    )
 
 
 def main(
@@ -26,7 +29,6 @@ def main(
     freq_norm = torch.linalg.norm(embedding_fft, dim=1).cpu()
 
     unique_freq = freq_norm[: (cfg["p"] // 2 + 1)]
-    # unique_freq = freq_norm
     values, indices = torch.topk(unique_freq, k=min(top_k, unique_freq.shape[0]))
 
     print("Top frequencies (k, norm):")
