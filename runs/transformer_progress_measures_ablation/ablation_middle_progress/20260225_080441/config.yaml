@@ -8,10 +8,10 @@ lr: 0.001
 weight_decay: 0.1
 steps: 80000
 eval_every: 200
-checkpoint_every: 5000
 seed: 0
 device: cuda
 h: 4
+checkpoint_every: 5000
 use_layernorm: false
 use_sinusoidal_pe: false
 use_eq_token: true
