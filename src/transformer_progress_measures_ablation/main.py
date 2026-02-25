@@ -268,6 +268,15 @@ def main(
                     loss.backward()
                     opt.step()
 
+                    if (
+                        cfg.checkpoint_every > 0
+                        and step % cfg.checkpoint_every == 0
+                        and runs_dir is not None
+                    ):
+                        periodic_checkpoint = runs_dir / f"checkpoint_step_{step}.pt"
+                        torch.save(model.state_dict(), periodic_checkpoint)
+                        print(f"Saved periodic checkpoint: {periodic_checkpoint}")
+
                     if step % cfg.eval_every == 0 or step == 1:
                         tr_loss, tr_acc = evaluate(model, x_tr, y_tr, cfg.device)
                         va_loss, va_acc = evaluate(model, x_va, y_va, cfg.device)
@@ -379,6 +388,7 @@ def run(
             "weight_decay",
             "steps",
             "eval_every",
+            "checkpoint_every",
             "seed",
             "device",
             "vocab_size",

@@ -23,7 +23,7 @@ uv run src/transformer_progress_measures_ablation/main.py --experiment ablation_
 
 FFT Embedding:
 ```
-uv run src/transformer_progress_measures/analysis/fft_embedding.py --run-dir <run_dir>
+uv run src/transformer_progress_measures_ablation/analysis/fft_embedding.py --run-dir <run_dir>
 ```
 
 Score periodic structure from a run directory with:

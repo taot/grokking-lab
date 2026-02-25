@@ -1,0 +1,16 @@
+p: 113
+vocab_size: 114
+d: 128
+n_layers: 1
+train_frac: 0.4
+batch_size: 3830
+lr: 0.001
+weight_decay: 0.1
+steps: 100000
+eval_every: 200
+seed: 0
+device: cuda
+h: 4
+use_layernorm: false
+use_sinusoidal_pe: false
+use_eq_token: true

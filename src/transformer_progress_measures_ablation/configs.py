@@ -21,6 +21,7 @@ class Config:
     seed: int
     device: str
     h: int = 4
+    checkpoint_every: int = 0
     use_layernorm: bool = False
     use_sinusoidal_pe: bool = False
     use_eq_token: bool = True
